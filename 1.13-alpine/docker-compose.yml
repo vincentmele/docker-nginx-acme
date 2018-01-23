@@ -1,0 +1,43 @@
+version: '3.4'
+
+services:
+  nginx:
+    image: inoc/nginx-registry
+    ports:
+      - 5443:443
+    volumes:
+      - /var/docker/registry-nginx:/etc/nginx:ro
+      - /var/docker/registry-acme.sh:/opt/acme.sh
+    secrets:
+      - source: tsig-1
+        target: tsig.key
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.app.registry == true
+      restart_policy:
+        condition: any
+        delay: 2s
+        window: 30s
+      update_config:
+        parallelism: 1
+        order: start-first
+        delay: 10s
+        failure_action: rollback
+
+  registry:
+    image: registry:latest
+    environment:
+      - REGISTRY_DELETE_ENABLED=true
+    volumes:
+      - /var/docker/registry:/var/lib/registry
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.app.registry == true
+
+secrets:
+  tsig-1:
+    file: ./secrets/tsig.key
